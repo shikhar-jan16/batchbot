@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import Image from "next/image";
 
 type LocalImage = { id: string; file: File; previewUrl: string };
 type Turn = {
@@ -103,6 +104,14 @@ export default function Home() {
 
     const currentQuestion = question.trim();
     
+    // ✅ Compress images FIRST
+    const imgsWithData = await Promise.all(
+      images.map(async (img) => ({ 
+        id: img.id, 
+        dataUrl: await fileToDataURL(img.file) 
+      }))
+    );
+    
     // Check if we're continuing the current selected chat
     const isCurrentChat = selectedTurnId && turns.find(t => t.id === selectedTurnId);
     
@@ -116,11 +125,11 @@ export default function Home() {
       const existingImageIds = existingTurn ? existingTurn.items.map(item => item.imageId) : [];
       
       // Only add images that aren't already in the conversation
-      const newImageItems = images
+      const newImageItems = imgsWithData
         .filter(img => !existingImageIds.includes(img.id))
         .map(img => ({ 
           imageId: img.id, 
-          previewUrl: img.previewUrl, 
+          previewUrl: img.dataUrl, // ✅ Use compressed data URL
           status: "pending" as const 
         }));
       
@@ -135,19 +144,18 @@ export default function Home() {
         )
       );
     } else {
-      // Create new chat (stays the same)
+      // Create new chat
       turnId = crypto.randomUUID();
       setSelectedTurnId(turnId);
-      const items = images.map((img) => ({ imageId: img.id, previewUrl: img.previewUrl, status: "pending" as const }));
+      const items = imgsWithData.map((img) => ({ 
+        imageId: img.id, 
+        previewUrl: img.dataUrl, // ✅ Use compressed data URL
+        status: "pending" as const 
+      }));
       setTurns((prev) => [{ id: turnId, question: currentQuestion, items, when: Date.now() }, ...prev]);
     }
 
     setQuestion("");
-
-    // Only compress CURRENT images (the new ones being uploaded)
-    const imgsWithData = await Promise.all(
-      images.map(async (img) => ({ id: img.id, dataUrl: await fileToDataURL(img.file) }))
-    );
 
     // Send only the NEW images to API
     try {
@@ -183,8 +191,8 @@ export default function Home() {
       
       setCurrentChatCompleted(images.length === 4);
       
-    } catch (e: any) {
-      // Handle errors...
+    } catch (error: unknown) {
+      console.error('Error in ask function:', error);
     }
   }
 
@@ -338,9 +346,16 @@ export default function Home() {
               </div>
               {/* thumbs */}
               <div className="grid grid-cols-2 gap-3 w-64">
-                {images.map((img) => (
+                {images.map((img, idx) => (
                   <div key={img.id} className="relative group overflow-hidden rounded-xl border border-gray-200">
-                    <img src={img.previewUrl} alt="preview" className="h-28 w-full object-cover" />
+                    <Image 
+                      src={img.previewUrl} 
+                      alt={`Upload ${idx + 1}`} 
+                      width={200} 
+                      height={128} 
+                      className="h-32 w-full object-cover" 
+                      unoptimized 
+                    />
                     <button
                       onClick={() => removeImage(img.id)}
                       className={`absolute right-1 top-1 rounded-md bg-white/90 px-1.5 py-0.5 text-xs opacity-0 group-hover:opacity-100 text-gray-600 hover:bg-white
@@ -372,7 +387,14 @@ export default function Home() {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       {selectedTurn.items.map((it, idx) => (
                         <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden bg-white transition-all duration-300 hover:shadow-md">
-                          <img src={it.previewUrl} alt={`image ${idx + 1}`} className="h-40 w-full object-cover" />
+                          <Image 
+                            src={it.previewUrl} 
+                            alt={`image ${idx + 1}`} 
+                            width={200} 
+                            height={160} 
+                            className="h-40 w-full object-cover" 
+                            unoptimized 
+                          />
                           <div className="p-3 text-sm">
                             {it.status === "pending" && (
                               <div className="flex items-center gap-2">

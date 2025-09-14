@@ -77,9 +77,9 @@ export async function POST(req: Request) {
 
     const results = await Promise.all(tasks);
     return Response.json({ results }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(err);
-    const msg = err?.message || "Failed to analyze images.";
+    const msg = err instanceof Error ? err.message : "Failed to analyze images.";
     return Response.json({ error: msg }, { status: 400 });
   }
 }
