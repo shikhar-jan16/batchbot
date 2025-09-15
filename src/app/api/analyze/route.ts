@@ -34,8 +34,7 @@ export async function POST(req: Request) {
       const json = await req.json();
       const { question, images } = Payload.parse(json);
   
-      if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here' || process.env.OPENAI_API_KEY === 'demo_key_placeholder') {
-        // Helpful placeholder for reviewers if key is missing
+      if (!process.env.OPENAI_API_KEY) {
         return Response.json({
           results: images.map((img, i) => ({
             imageId: img.id,
